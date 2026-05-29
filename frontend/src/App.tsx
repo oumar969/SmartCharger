@@ -68,6 +68,7 @@ export default function App() {
 
   const { data: window } = useQuery<ChargeWindow | null>({
     queryKey: ["window", hours, area, deadlineISO, strategy],
+    retry: false,
     queryFn:  () =>
       axios.get<ChargeWindow>(`${API}/window?hours=${hours}&area=${area}&deadline=${encodeURIComponent(deadlineISO)}&strategy=${strategy}`)
         .then(r => r.data)
