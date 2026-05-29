@@ -89,6 +89,41 @@ header p { color: #94a3b8; }
 .dot.green      { background: #22c55e; }
 .dot.lightgreen { background: #86efac; }
 .dot.grey       { background: #64748b; }
+.dot.amber      { background: #f59e0b; }
+
+.strategy-toggle {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.strategy-toggle button {
+  flex: 1;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #334155;
+  background: #1e293b;
+  color: #94a3b8;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.strategy-toggle button.active {
+  background: #1e40af;
+  border-color: #3b82f6;
+  color: #fff;
+}
+
+.strategy-toggle button.active.green {
+  background: #14532d;
+  border-color: #22c55e;
+}
+
+.card.emerald { border-color: #10b981; }
+.card.emerald span { color: #10b981; }
+
+.green-banner { border-color: #10b981 !important; color: #6ee7b7 !important; }
 
 .window-banner {
   background: #1e293b;

@@ -6,9 +6,23 @@ public record ElspotPrice(
     string PriceArea
 );
 
+public record Co2Forecast(
+    DateTime HourStart,
+    double Co2PerKwh,  // g CO2/kWh
+    string PriceArea
+);
+
+public record HourData(
+    DateTime HourStart,
+    double PriceDKK,
+    double Co2PerKwh,
+    string PriceArea
+);
+
 public record ChargeRecommendation(
     DateTime HourStart,
     double PriceDKK,
+    double Co2PerKwh,
     bool IsRecommended
 );
 
@@ -17,5 +31,8 @@ public record ChargeWindow(
     DateTime WindowEnd,
     double TotalCostDKK,
     double AveragePriceDKK,
+    double AverageCo2,
     List<ChargeRecommendation> Hours
 );
+
+public enum OptimizationStrategy { Cheapest, Greenest }
