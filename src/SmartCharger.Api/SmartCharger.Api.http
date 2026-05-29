@@ -1,0 +1,6 @@
+@SmartCharger.Api_HostAddress = http://localhost:5090
+
+GET {{SmartCharger.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
