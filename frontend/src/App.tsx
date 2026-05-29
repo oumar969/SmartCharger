@@ -46,17 +46,15 @@ export default function App() {
   const [deadline, setDeadline] = useState("07:00");
   const [strategy, setStrategy] = useState<Strategy>("Cheapest");
 
-  const deadlineISO = (() => {
+  const deadlineISO = useMemo(() => {
     const parts = deadline.split(":");
-    if (parts.length < 2) return new Date(Date.now() + 86400000).toISOString();
-    const h = parseInt(parts[0], 10);
-    const m = parseInt(parts[1], 10);
-    if (isNaN(h) || isNaN(m)) return new Date(Date.now() + 86400000).toISOString();
+    const h = parseInt(parts[0] ?? "", 10);
+    const m = parseInt(parts[1] ?? "", 10);
     const d = new Date();
     d.setDate(d.getDate() + 1);
-    d.setHours(h, m, 0, 0);
+    d.setHours(isNaN(h) ? 7 : h, isNaN(m) ? 0 : m, 0, 0);
     return d.toISOString();
-  })();
+  }, [deadline]);
 
   const { data: recommendations = [], isLoading, isError } = useQuery<ChargeRecommendation[]>({
     queryKey: ["recommendations", hours, area, strategy],
