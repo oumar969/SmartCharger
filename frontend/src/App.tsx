@@ -35,7 +35,8 @@ type Strategy = "Cheapest" | "Greenest";
 const API   = "http://localhost:5000/api/elspot";
 const AREAS = ["DK1", "DK2"];
 
-const fetch = <T>(url: string) => axios.get<T>(url).then(r => r.data);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const fetchJson = (url: string): Promise<any> => axios.get(url).then(r => r.data);
 const fmt   = (iso: string) =>
   new Date(iso).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" });
 
@@ -46,7 +47,11 @@ export default function App() {
   const [strategy, setStrategy] = useState<Strategy>("Cheapest");
 
   const deadlineISO = (() => {
-    const [h, m] = deadline.split(":").map(Number);
+    const parts = deadline.split(":");
+    if (parts.length < 2) return new Date(Date.now() + 86400000).toISOString();
+    const h = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10);
+    if (isNaN(h) || isNaN(m)) return new Date(Date.now() + 86400000).toISOString();
     const d = new Date();
     d.setDate(d.getDate() + 1);
     d.setHours(h, m, 0, 0);
@@ -55,18 +60,20 @@ export default function App() {
 
   const { data: recommendations = [], isLoading, isError } = useQuery<ChargeRecommendation[]>({
     queryKey: ["recommendations", hours, area, strategy],
-    queryFn:  () => fetch(`${API}/recommendations?hours=${hours}&area=${area}&strategy=${strategy}`),
+    queryFn:  () => fetchJson(`${API}/recommendations?hours=${hours}&area=${area}&strategy=${strategy}`),
   });
 
   const { data: merged = [] } = useQuery<HourData[]>({
     queryKey: ["merged", area],
-    queryFn:  () => fetch(`${API}/merged?area=${area}`),
+    queryFn:  () => fetchJson(`${API}/merged?area=${area}`),
   });
 
-  const { data: window } = useQuery<ChargeWindow>({
+  const { data: window } = useQuery<ChargeWindow | null>({
     queryKey: ["window", hours, area, deadlineISO, strategy],
     queryFn:  () =>
-      fetch(`${API}/window?hours=${hours}&area=${area}&deadline=${encodeURIComponent(deadlineISO)}&strategy=${strategy}`),
+      axios.get<ChargeWindow>(`${API}/window?hours=${hours}&area=${area}&deadline=${encodeURIComponent(deadlineISO)}&strategy=${strategy}`)
+        .then(r => r.data)
+        .catch(e => e?.response?.status === 404 ? null : Promise.reject(e)),
   });
 
   const avgPrice = merged.length ? merged.reduce((s, d) => s + d.priceDKK, 0) / merged.length : 0;

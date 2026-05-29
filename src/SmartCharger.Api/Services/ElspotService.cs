@@ -19,22 +19,24 @@ public class ElspotService(HttpClient http, ILogger<ElspotService> logger)
 
     public async Task<List<ElspotPrice>> GetTodayPricesAsync(string priceArea = "DK2")
     {
-        if (_priceCache.TryGetValue(priceArea, out var c) && Age(c.At) < 60) return c.Data;
+        if (_priceCache.TryGetValue(priceArea, out var c) && Age(c.At) < 240) return c.Data;
 
-        var from = DateTime.UtcNow.Date;
-        var to   = from.AddDays(2);
-        var url  = $"{ElspotUrl}?start={from:yyyy-MM-ddTHH:mm}&end={to:yyyy-MM-ddTHH:mm}&filter={{\"PriceArea\":\"{priceArea}\"}}&sort=HourUTC asc&limit=48";
+        var from   = DateTime.UtcNow.Date;
+        var to     = from.AddDays(2);
+        var filter = Uri.EscapeDataString($"{{\"PriceArea\":\"{priceArea}\"}}");
+        var url    = $"{ElspotUrl}?start={from:yyyy-MM-ddTHH:mm}&end={to:yyyy-MM-ddTHH:mm}&filter={filter}&sort=HourUTC%20asc&limit=48";
 
         return await FetchAndCache(url, _priceCache, priceArea, c.Data);
     }
 
     public async Task<List<Co2Forecast>> GetCo2ForecastAsync(string priceArea = "DK2")
     {
-        if (_co2Cache.TryGetValue(priceArea, out var c) && Age(c.At) < 60) return c.Data;
+        if (_co2Cache.TryGetValue(priceArea, out var c) && Age(c.At) < 240) return c.Data;
 
-        var from = DateTime.UtcNow.Date;
-        var to   = from.AddDays(2);
-        var url  = $"{EmissionsUrl}?start={from:yyyy-MM-ddTHH:mm}&end={to:yyyy-MM-ddTHH:mm}&filter={{\"PriceArea\":\"{priceArea}\"}}&sort=Minutes5UTC asc&limit=576";
+        var from   = DateTime.UtcNow.Date;
+        var to     = from.AddDays(2);
+        var filter = Uri.EscapeDataString($"{{\"PriceArea\":\"{priceArea}\"}}");
+        var url    = $"{EmissionsUrl}?start={from:yyyy-MM-ddTHH:mm}&end={to:yyyy-MM-ddTHH:mm}&filter={filter}&sort=Minutes5UTC%20asc&limit=576";
 
         return await FetchCo2AndCache(url, _co2Cache, priceArea, c.Data);
     }
