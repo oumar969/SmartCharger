@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid,
@@ -165,10 +165,12 @@ export default function App() {
               <YAxis yAxisId="price" tickFormatter={v => `${v} kr`} />
               <YAxis yAxisId="co2" orientation="right" tickFormatter={v => `${v}g`} />
               <Tooltip
-                formatter={(v: number, name: string) =>
-                  name === "co2PerKwh"
-                    ? [`${v.toFixed(0)} g CO₂/kWh`, "CO₂"]
-                    : [`${v.toFixed(4)} kr/kWh`, "Pris"]}
+                formatter={(v, name) => {
+                const val = Number(v);
+                return name === "co2PerKwh"
+                  ? [`${val.toFixed(0)} g CO₂/kWh`, "CO₂"]
+                  : [`${val.toFixed(4)} kr/kWh`, "Pris"];
+              }}
                 labelFormatter={l => new Date(l).toLocaleString("da-DK")}
               />
               <Legend />
