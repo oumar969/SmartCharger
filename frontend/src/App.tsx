@@ -179,6 +179,7 @@ export default function App() {
   return (
     <div className="app">
       <header>
+        <span className="eyebrow">Elbil · Energinet · Danmark</span>
         <h1>SmartCharger ⚡</h1>
         <p>Lad billigt. Lad grønt. Altid det rigtige tidspunkt.</p>
       </header>
@@ -318,7 +319,8 @@ export default function App() {
 
           {stats && stats.totalSessions > 0 && (
             <div className="stats-section">
-              <h2>📊 Din besparelse</h2>
+            <hr className="section-divider" />
+              <span className="stats-eyebrow">Din besparelse</span>
               <div className="stats-grid">
                 <div className="stat-card">
                   <span>{stats.totalSessions}</span>
