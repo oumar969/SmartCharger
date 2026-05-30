@@ -136,12 +136,11 @@ export default function App() {
   });
 
   // Only show the most recent 24 hours
-  const last24 = useMemo(() => {
-    if (merged.length === 0) return [];
-    return [...merged]
-      .sort((a, b) => (a.hourStart < b.hourStart ? -1 : a.hourStart > b.hourStart ? 1 : 0))
-      .slice(-24);
-  }, [merged]);
+  const last24 = merged.length === 0
+    ? []
+    : [...merged]
+        .sort((a, b) => (a.hourStart < b.hourStart ? -1 : a.hourStart > b.hourStart ? 1 : 0))
+        .slice(-24);
 
   const avgOere = last24.length ? Math.round(last24.reduce((s, d) => s + d.priceDKK, 0) / last24.length * 100) : 0;
   const avgCo2  = last24.length ? last24.reduce((s, d) => s + d.co2PerKwh, 0) / last24.length : 0;
