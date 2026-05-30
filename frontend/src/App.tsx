@@ -93,10 +93,18 @@ export default function App() {
         .catch(e => e?.response?.status === 404 ? null : Promise.reject(e)),
   });
 
-  const avgOere = merged.length ? Math.round(merged.reduce((s, d) => s + d.priceDKK, 0) / merged.length * 100) : 0;
-  const avgCo2  = merged.length ? merged.reduce((s, d) => s + d.co2PerKwh, 0) / merged.length : 0;
+  // Only show the most recent 24 hours
+  const last24 = useMemo(() => {
+    if (merged.length === 0) return [];
+    const sorted = [...merged].sort((a, b) =>
+      new Date(a.hourStart).getTime() - new Date(b.hourStart).getTime());
+    return sorted.slice(-24);
+  }, [merged]);
 
-  const chartData = merged.map(h => {
+  const avgOere = last24.length ? Math.round(last24.reduce((s, d) => s + d.priceDKK, 0) / last24.length * 100) : 0;
+  const avgCo2  = last24.length ? last24.reduce((s, d) => s + d.co2PerKwh, 0) / last24.length : 0;
+
+  const chartData = last24.map(h => {
     const rec = recommendations.find(r => r.hourStart === h.hourStart);
     const inWin = window &&
       new Date(h.hourStart) >= new Date(window.windowStart) &&
@@ -162,7 +170,7 @@ export default function App() {
               <strong>Bedste {isCheapest ? "billigste" : "grønneste"} vindue:</strong>{" "}
               {fmt(window.windowStart)} – {fmt(window.windowEnd)}{" · "}
               {isCheapest
-                ? `gns. ${toOere(window.averagePriceDKK)} øre/kWh · total ${toOere(window.totalCostDKK)} øre/kWh`
+                ? `gns. ${toOere(window.averagePriceDKK)} øre/kWh`
                 : `gns. ${window.averageCo2.toFixed(0)} g CO₂/kWh`}
             </div>
           )}

@@ -36,7 +36,7 @@ public class ElspotService(HttpClient http, ILogger<ElspotService> logger)
         return await FetchAndCache(url, _priceCache, priceArea, c.Data);
     }
 
-    public async Task<List<Co2Forecast>> GetCo2ForecastAsync(string priceArea = "DK2")
+    public async Task<List<Co2Forecast>> GetCo2ForecastAsync(string priceArea = "DK2", DateTime? from = null, DateTime? to = null)
     {
         if (_co2Cache.TryGetValue(priceArea, out var c) && Age(c.At) < 240) return c.Data;
         if (_co2Backoff.TryGetValue(priceArea, out var cb) && DateTime.UtcNow < cb)
@@ -46,7 +46,11 @@ public class ElspotService(HttpClient http, ILogger<ElspotService> logger)
         }
 
         var filter = Uri.EscapeDataString($"{{\"PriceArea\":\"{priceArea}\"}}");
-        var url    = $"{EmissionsUrl}?filter={filter}&sort=Minutes5UTC%20desc&limit=576";
+
+        // If we know the price date range, fetch CO2 for exactly that period
+        var url = from.HasValue && to.HasValue
+            ? $"{EmissionsUrl}?start={from.Value:yyyy-MM-ddTHH:mm}&end={to.Value:yyyy-MM-ddTHH:mm}&filter={filter}&sort=Minutes5UTC%20asc&limit=576"
+            : $"{EmissionsUrl}?filter={filter}&sort=Minutes5UTC%20desc&limit=576";
 
         return await FetchCo2AndCache(url, _co2Cache, priceArea, c.Data);
     }
@@ -54,23 +58,22 @@ public class ElspotService(HttpClient http, ILogger<ElspotService> logger)
     public async Task<List<HourData>> GetMergedAsync(string priceArea = "DK2")
     {
         var prices = await GetTodayPricesAsync(priceArea);
-        var co2    = await GetCo2ForecastAsync(priceArea);
 
-        // CO2 data is in 5-min intervals — average per hour, strip minutes for matching
+        // Fetch CO2 for the exact same date range as prices
+        DateTime? from = prices.Count > 0 ? prices.Min(p => p.HourStart) : null;
+        DateTime? to   = prices.Count > 0 ? prices.Max(p => p.HourStart).AddHours(1) : null;
+        var co2 = await GetCo2ForecastAsync(priceArea, from, to);
+
+        // CO2 is in 5-min intervals — average per hour
         var co2ByHour = co2
-            .GroupBy(c => c.HourStart.Date.AddHours(c.HourStart.Hour))
+            .GroupBy(c => new DateTime(c.HourStart.Year, c.HourStart.Month, c.HourStart.Day,
+                                       c.HourStart.Hour, 0, 0, DateTimeKind.Unspecified))
             .ToDictionary(g => g.Key, g => g.Average(x => x.Co2PerKwh));
 
         return prices.Select(p => {
-            // Try both UTC and unspecified DateTimeKind since Energinet may differ
-            var key = p.HourStart.Kind == DateTimeKind.Utc
-                ? DateTime.SpecifyKind(p.HourStart, DateTimeKind.Unspecified)
-                : p.HourStart;
-            var keyUtc = p.HourStart.Date.AddHours(p.HourStart.Hour);
-
-            var co2val = co2ByHour.TryGetValue(keyUtc, out var v1) ? v1
-                       : co2ByHour.TryGetValue(key, out var v2) ? v2
-                       : 0;
+            var key    = new DateTime(p.HourStart.Year, p.HourStart.Month, p.HourStart.Day,
+                                      p.HourStart.Hour, 0, 0, DateTimeKind.Unspecified);
+            var co2val = co2ByHour.TryGetValue(key, out var v) ? v : 0;
 
             return new HourData(p.HourStart, p.PriceDKK, Math.Round(co2val, 1), p.PriceArea);
         }).ToList();
