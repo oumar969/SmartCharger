@@ -15,18 +15,18 @@ public class ElspotService(HttpClient http, ILogger<ElspotService> logger)
     private static readonly Dictionary<string, (DateTime At, List<ElspotPrice> Data)>  _priceCache = new();
     private static readonly Dictionary<string, (DateTime At, List<Co2Forecast> Data)>  _co2Cache   = new();
 
-    // Backoff: don't retry Energinet for 6 minutes after a 429
-    private static DateTime _priceBackoffUntil = DateTime.MinValue;
-    private static DateTime _co2BackoffUntil   = DateTime.MinValue;
+    // Backoff per area: don't retry Energinet for 6 minutes after a 429
+    private static readonly Dictionary<string, DateTime> _priceBackoff = new();
+    private static readonly Dictionary<string, DateTime> _co2Backoff   = new();
 
     // --- Public API ---
 
     public async Task<List<ElspotPrice>> GetTodayPricesAsync(string priceArea = "DK2")
     {
         if (_priceCache.TryGetValue(priceArea, out var c) && Age(c.At) < 240) return c.Data;
-        if (DateTime.UtcNow < _priceBackoffUntil)
+        if (_priceBackoff.TryGetValue(priceArea, out var pb) && DateTime.UtcNow < pb)
         {
-            logger.LogWarning("Elspot rate-limited, backing off until {Until}", _priceBackoffUntil);
+            logger.LogWarning("Elspot rate-limited for {Area}, backing off until {Until}", priceArea, pb);
             return c.Data ?? [];
         }
 
@@ -39,9 +39,9 @@ public class ElspotService(HttpClient http, ILogger<ElspotService> logger)
     public async Task<List<Co2Forecast>> GetCo2ForecastAsync(string priceArea = "DK2")
     {
         if (_co2Cache.TryGetValue(priceArea, out var c) && Age(c.At) < 240) return c.Data;
-        if (DateTime.UtcNow < _co2BackoffUntil)
+        if (_co2Backoff.TryGetValue(priceArea, out var cb) && DateTime.UtcNow < cb)
         {
-            logger.LogWarning("CO2 rate-limited, backing off until {Until}", _co2BackoffUntil);
+            logger.LogWarning("CO2 rate-limited for {Area}, backing off until {Until}", priceArea, cb);
             return c.Data ?? [];
         }
 
@@ -125,8 +125,8 @@ public class ElspotService(HttpClient http, ILogger<ElspotService> logger)
         }
         catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
         {
-            _priceBackoffUntil = DateTime.UtcNow.AddMinutes(6);
-            logger.LogWarning("Elspot 429 — backing off for 6 minutes");
+            _priceBackoff[key] = DateTime.UtcNow.AddMinutes(6);
+            logger.LogWarning("Elspot 429 for {Area} — backing off for 6 minutes", key);
             return fallback ?? [];
         }
         catch (Exception ex)
@@ -152,8 +152,8 @@ public class ElspotService(HttpClient http, ILogger<ElspotService> logger)
         }
         catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
         {
-            _co2BackoffUntil = DateTime.UtcNow.AddMinutes(6);
-            logger.LogWarning("CO2 429 — backing off for 6 minutes");
+            _co2Backoff[key] = DateTime.UtcNow.AddMinutes(6);
+            logger.LogWarning("CO2 429 for {Area} — backing off for 6 minutes", key);
             return fallback ?? [];
         }
         catch (Exception ex)

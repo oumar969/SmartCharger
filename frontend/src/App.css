@@ -37,7 +37,8 @@ header p { color: #94a3b8; }
 }
 
 .controls select,
-.controls input {
+.controls input,
+.controls .input-error {
   background: #1e293b;
   border: 1px solid #334155;
   color: #e2e8f0;
@@ -139,4 +140,9 @@ header p { color: #94a3b8; }
   text-align: center;
   color: #f87171;
   padding: 16px;
+}
+
+.input-error {
+  border-color: #f87171 !important;
+  outline: 1px solid #f87171;
 }

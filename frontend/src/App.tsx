@@ -37,8 +37,13 @@ const AREAS = ["DK1", "DK2"];
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const fetchJson = (url: string): Promise<any> => axios.get(url).then(r => r.data);
-const fmt   = (iso: string) =>
+
+// Format ISO timestamp → "HH:mm"
+const fmt = (iso: string) =>
   new Date(iso).toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" });
+
+// kr/kWh → øre/kWh
+const toOere = (kr: number) => Math.round(kr * 100);
 
 export default function App() {
   const [hours,    setHours]    = useState(4);
@@ -46,15 +51,25 @@ export default function App() {
   const [deadline, setDeadline] = useState("07:00");
   const [strategy, setStrategy] = useState<Strategy>("Cheapest");
 
+  // Build deadline ISO — if deadline time has already passed today, use tomorrow
   const deadlineISO = useMemo(() => {
     const parts = deadline.split(":");
     const h = parseInt(parts[0] ?? "", 10);
     const m = parseInt(parts[1] ?? "", 10);
+    if (isNaN(h) || isNaN(m)) return new Date(Date.now() + 86400000).toISOString();
     const d = new Date();
-    d.setDate(d.getDate() + 1);
-    d.setHours(isNaN(h) ? 7 : h, isNaN(m) ? 0 : m, 0, 0);
+    d.setHours(h, m, 0, 0);
+    // If deadline is in the past (or less than `hours` away), push to tomorrow
+    const hoursUntil = (d.getTime() - Date.now()) / 3600000;
+    if (hoursUntil < hours) d.setDate(d.getDate() + 1);
     return d.toISOString();
-  }, [deadline]);
+  }, [deadline, hours]);
+
+  // Validate: is there enough time before deadline?
+  const hoursUntilDeadline = (new Date(deadlineISO).getTime() - Date.now()) / 3600000;
+  const deadlineError = hoursUntilDeadline < hours
+    ? `Kun ${hoursUntilDeadline.toFixed(1)} t til deadline — ikke nok tid til ${hours} timers opladning`
+    : null;
 
   const { data: recommendations = [], isLoading, isError } = useQuery<ChargeRecommendation[]>({
     queryKey: ["recommendations", hours, area, strategy],
@@ -69,21 +84,27 @@ export default function App() {
   const { data: window } = useQuery<ChargeWindow | null>({
     queryKey: ["window", hours, area, deadlineISO, strategy],
     retry: false,
-    queryFn:  () =>
+    enabled: !deadlineError,
+    queryFn: () =>
       axios.get<ChargeWindow>(`${API}/window?hours=${hours}&area=${area}&deadline=${encodeURIComponent(deadlineISO)}&strategy=${strategy}`)
         .then(r => r.data)
         .catch(e => e?.response?.status === 404 ? null : Promise.reject(e)),
   });
 
-  const avgPrice = merged.length ? merged.reduce((s, d) => s + d.priceDKK, 0) / merged.length : 0;
-  const avgCo2   = merged.length ? merged.reduce((s, d) => s + d.co2PerKwh, 0) / merged.length : 0;
+  const avgOere = merged.length ? Math.round(merged.reduce((s, d) => s + d.priceDKK, 0) / merged.length * 100) : 0;
+  const avgCo2  = merged.length ? merged.reduce((s, d) => s + d.co2PerKwh, 0) / merged.length : 0;
 
   const chartData = merged.map(h => {
     const rec = recommendations.find(r => r.hourStart === h.hourStart);
     const inWin = window &&
       new Date(h.hourStart) >= new Date(window.windowStart) &&
       new Date(h.hourStart) < new Date(window.windowEnd);
-    return { ...h, isRecommended: rec?.isRecommended ?? false, inWindow: inWin ?? false };
+    return {
+      ...h,
+      priceOere: toOere(h.priceDKK),   // display in øre
+      isRecommended: rec?.isRecommended ?? false,
+      inWindow: inWin ?? false,
+    };
   });
 
   const isCheapest = strategy === "Cheapest";
@@ -96,14 +117,10 @@ export default function App() {
       </header>
 
       <div className="strategy-toggle">
-        <button
-          className={isCheapest ? "active" : ""}
-          onClick={() => setStrategy("Cheapest")}>
+        <button className={isCheapest ? "active" : ""} onClick={() => setStrategy("Cheapest")}>
           💰 Billigst
         </button>
-        <button
-          className={!isCheapest ? "active green" : "green"}
-          onClick={() => setStrategy("Greenest")}>
+        <button className={!isCheapest ? "active green" : "green"} onClick={() => setStrategy("Greenest")}>
           🌿 Grønnest
         </button>
       </div>
@@ -122,11 +139,17 @@ export default function App() {
         </label>
         <label>
           Bilen skal køre kl.:
-          <input type="time" value={deadline} onChange={e => setDeadline(e.target.value)} />
+          <input
+            type="time"
+            value={deadline}
+            className={deadlineError ? "input-error" : ""}
+            onChange={e => setDeadline(e.target.value)}
+          />
         </label>
       </div>
 
-      {isError && <p className="error">Kunne ikke hente data — prøv igen om lidt.</p>}
+      {deadlineError && <p className="error">⚠️ {deadlineError}</p>}
+      {isError      && <p className="error">Kunne ikke hente data — prøv igen om lidt.</p>}
 
       {isLoading ? (
         <p className="loading">Henter priser…</p>
@@ -137,15 +160,15 @@ export default function App() {
               <strong>Bedste {isCheapest ? "billigste" : "grønneste"} vindue:</strong>{" "}
               {fmt(window.windowStart)} – {fmt(window.windowEnd)}{" · "}
               {isCheapest
-                ? `gns. ${window.averagePriceDKK.toFixed(3)} kr/kWh · total ${window.totalCostDKK.toFixed(3)} kr/kWh`
+                ? `gns. ${toOere(window.averagePriceDKK)} øre/kWh · total ${toOere(window.totalCostDKK)} øre/kWh`
                 : `gns. ${window.averageCo2.toFixed(0)} g CO₂/kWh`}
             </div>
           )}
 
           <div className="summary">
             <div className="card">
-              <span>{avgPrice.toFixed(2)} kr</span>
-              <small>Gns. spotpris</small>
+              <span>{avgOere} øre</span>
+              <small>Gns. spotpris/kWh</small>
             </div>
             <div className="card green">
               <span>{avgCo2.toFixed(0)} g</span>
@@ -172,8 +195,8 @@ export default function App() {
               />
               <YAxis
                 yAxisId="price"
-                tickFormatter={v => `${v} kr`}
-                width={60}
+                tickFormatter={v => `${v} ø`}
+                width={55}
               />
               <YAxis
                 yAxisId="co2"
@@ -187,13 +210,13 @@ export default function App() {
                   const val = Number(v);
                   return name === "CO₂"
                     ? [`${val.toFixed(0)} g CO₂/kWh`, "CO₂"]
-                    : [`${val.toFixed(4)} kr/kWh`, "Spotpris"];
+                    : [`${val} øre/kWh`, "Spotpris"];
                 }}
                 labelFormatter={l => new Date(l).toLocaleString("da-DK")}
               />
               <Legend verticalAlign="bottom" height={36} wrapperStyle={{ paddingTop: "12px" }} />
-              <ReferenceLine yAxisId="price" y={avgPrice} stroke="#888" strokeDasharray="4 4" />
-              <Bar yAxisId="price" dataKey="priceDKK" radius={[4, 4, 0, 0]} name="Spotpris">
+              <ReferenceLine yAxisId="price" y={avgOere} stroke="#888" strokeDasharray="4 4" />
+              <Bar yAxisId="price" dataKey="priceOere" radius={[4, 4, 0, 0]} name="Spotpris">
                 {chartData.map((entry, i) => (
                   <Cell key={i} fill={
                     entry.inWindow      ? (isCheapest ? "#22c55e" : "#10b981") :
