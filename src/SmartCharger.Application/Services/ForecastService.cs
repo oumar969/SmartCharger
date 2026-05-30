@@ -1,41 +1,39 @@
 using Microsoft.ML;
 using Microsoft.ML.Transforms.TimeSeries;
-using SmartCharger.Api.Models;
-using SmartCharger.Api.Services;
+using Microsoft.Extensions.Logging;
+using SmartCharger.Application.Interfaces;
+using SmartCharger.Domain.Models;
 
-namespace SmartCharger.Api.Services;
+namespace SmartCharger.Application.Services;
 
-public record PriceForecast(DateTime HourStart, double ForecastedPriceDKK, double LowerBound, double UpperBound);
-
-public class ForecastService(ElspotService elspot, ILogger<ForecastService> logger)
+public class ForecastService(IElspotRepository repo, ILogger<ForecastService> logger) : IForecastService
 {
     private static readonly MLContext _ml = new(seed: 42);
 
     public async Task<List<PriceForecast>> GetForecastAsync(string priceArea = "DK2", int horizonHours = 24)
     {
-        // Fetch historical prices to train on
-        var prices = await elspot.GetTodayPricesAsync(priceArea);
+        var now    = DateTime.UtcNow;
+        var prices = await repo.GetPricesAsync(priceArea, now.Date.AddDays(-2), now.Date.AddDays(1));
+
         if (prices.Count < 24)
         {
-            logger.LogWarning("Not enough historical data for forecast ({Count} hours)", prices.Count);
+            logger.LogWarning("Not enough data for forecast ({Count} hours)", prices.Count);
             return [];
         }
 
         try
         {
-            // Prepare training data
-            var data = prices.Select(p => new PriceInput { Price = (float)p.PriceDKK }).ToList();
+            var data      = prices.Select(p => new PriceInput { Price = (float)p.PriceDKK }).ToList();
             var trainData = _ml.Data.LoadFromEnumerable(data);
 
-            // SSA (Singular Spectrum Analysis) forecasting
             var pipeline = _ml.Forecasting.ForecastBySsa(
-                outputColumnName:    nameof(PriceOutput.ForecastedPrices),
-                inputColumnName:     nameof(PriceInput.Price),
-                windowSize:          12,
-                seriesLength:        prices.Count,
-                trainSize:           prices.Count,
-                horizon:             horizonHours,
-                confidenceLevel:     0.95f,
+                outputColumnName:           nameof(PriceOutput.ForecastedPrices),
+                inputColumnName:            nameof(PriceInput.Price),
+                windowSize:                 12,
+                seriesLength:               prices.Count,
+                trainSize:                  prices.Count,
+                horizon:                    horizonHours,
+                confidenceLevel:            0.95f,
                 confidenceLowerBoundColumn: nameof(PriceOutput.LowerBound),
                 confidenceUpperBoundColumn: nameof(PriceOutput.UpperBound)
             );
@@ -43,17 +41,15 @@ public class ForecastService(ElspotService elspot, ILogger<ForecastService> logg
             var model      = pipeline.Fit(trainData);
             var engine     = model.CreateTimeSeriesEngine<PriceInput, PriceOutput>(_ml);
             var prediction = engine.Predict();
+            var lastHour   = prices.Max(p => p.HourStart);
 
-            // Build forecast starting from last known hour + 1
-            var lastHour = prices.Max(p => p.HourStart);
             return prediction.ForecastedPrices
                 .Select((price, i) => new PriceForecast(
                     lastHour.AddHours(i + 1),
                     Math.Max(0, Math.Round(price, 4)),
                     Math.Max(0, Math.Round(prediction.LowerBound[i], 4)),
                     Math.Max(0, Math.Round(prediction.UpperBound[i], 4))
-                ))
-                .ToList();
+                )).ToList();
         }
         catch (Exception ex)
         {

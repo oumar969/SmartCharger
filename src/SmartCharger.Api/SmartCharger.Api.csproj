@@ -20,4 +20,9 @@
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.7" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\SmartCharger.Application\SmartCharger.Application.csproj" />
+    <ProjectReference Include="..\SmartCharger.Infrastructure\SmartCharger.Infrastructure.csproj" />
+  </ItemGroup>
+
 </Project>

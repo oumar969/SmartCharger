@@ -1,19 +1,12 @@
-using SmartCharger.Api.Models;
+using SmartCharger.Domain.Models;
 
-namespace SmartCharger.Api.Domain;
+namespace SmartCharger.Domain.Logic;
 
 public static class ChargingOptimizer
 {
-    /// <summary>
-    /// Finds the cheapest or greenest contiguous window of N hours before the deadline.
-    /// Pure function — no HTTP, no side-effects, fully testable.
-    /// </summary>
     public static ChargeWindow? FindBestWindow(
-        IReadOnlyList<HourData> hours,
-        int hoursNeeded,
-        DateTime now,
-        DateTime deadline,
-        OptimizationStrategy strategy)
+        IReadOnlyList<HourData> hours, int hoursNeeded,
+        DateTime now, DateTime deadline, OptimizationStrategy strategy)
     {
         if (hours.Count == 0 || hoursNeeded <= 0) return null;
 
@@ -30,7 +23,6 @@ public static class ChargingOptimizer
         {
             var window = candidates.Skip(i).Take(hoursNeeded).ToList();
 
-            // Verify contiguous
             bool contiguous = true;
             for (int j = 1; j < window.Count; j++)
                 if ((window[j].HourStart - window[j - 1].HourStart).TotalHours != 1)
@@ -38,11 +30,11 @@ public static class ChargingOptimizer
 
             if (!contiguous) continue;
 
-            var score = strategy == OptimizationStrategy.Cheapest
+            double score     = strategy == OptimizationStrategy.Cheapest
                 ? window.Sum(h => h.PriceDKK)
                 : window.Sum(h => h.Co2PerKwh);
 
-            var bestScore = strategy == OptimizationStrategy.Cheapest
+            double? bestScore = strategy == OptimizationStrategy.Cheapest
                 ? best?.TotalCostDKK
                 : best?.AverageCo2 * hoursNeeded;
 
@@ -54,39 +46,28 @@ public static class ChargingOptimizer
                     Math.Round(window.Sum(h => h.PriceDKK), 4),
                     Math.Round(window.Average(h => h.PriceDKK), 4),
                     Math.Round(window.Average(h => h.Co2PerKwh), 2),
-                    window.Select(h => new ChargeRecommendation(
-                        h.HourStart, h.PriceDKK, h.Co2PerKwh, true)).ToList()
+                    window.Select(h => new ChargeRecommendation(h.HourStart, h.PriceDKK, h.Co2PerKwh, true)).ToList()
                 );
             }
         }
-
         return best;
     }
 
-    /// <summary>
-    /// Marks which individual hours are in the cheapest/greenest N (not necessarily contiguous).
-    /// </summary>
     public static List<ChargeRecommendation> MarkRecommended(
-        IReadOnlyList<HourData> hours,
-        int hoursNeeded,
-        OptimizationStrategy strategy)
+        IReadOnlyList<HourData> hours, int hoursNeeded, OptimizationStrategy strategy)
     {
         if (hours.Count == 0) return [];
 
-        var ordered = strategy == OptimizationStrategy.Cheapest
+        var ordered  = strategy == OptimizationStrategy.Cheapest
             ? hours.OrderBy(h => h.PriceDKK)
             : hours.OrderBy(h => h.Co2PerKwh);
 
         var threshold = ordered.Take(hoursNeeded).Last();
-
         double cutoff = strategy == OptimizationStrategy.Cheapest
-            ? threshold.PriceDKK
-            : threshold.Co2PerKwh;
+            ? threshold.PriceDKK : threshold.Co2PerKwh;
 
         return hours.Select(h => new ChargeRecommendation(
-            h.HourStart,
-            h.PriceDKK,
-            h.Co2PerKwh,
+            h.HourStart, h.PriceDKK, h.Co2PerKwh,
             strategy == OptimizationStrategy.Cheapest
                 ? h.PriceDKK <= cutoff
                 : h.Co2PerKwh <= cutoff

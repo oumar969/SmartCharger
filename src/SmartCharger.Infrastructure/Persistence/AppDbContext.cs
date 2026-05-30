@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
-using SmartCharger.Api.Models;
+using SmartCharger.Domain.Models;
 
-namespace SmartCharger.Api.Data;
+namespace SmartCharger.Infrastructure.Persistence;
 
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {

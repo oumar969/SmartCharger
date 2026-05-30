@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\SmartCharger.Api\SmartCharger.Api.csproj" />
+    <ProjectReference Include="..\..\src\SmartCharger.Domain\SmartCharger.Domain.csproj" />
   </ItemGroup>
 
 </Project>
