@@ -192,7 +192,8 @@ export default function App() {
             )}
           </div>
 
-          <ResponsiveContainer width="100%" height={360}>
+          <div className="chart-wrapper">
+          <ResponsiveContainer width="100%" height={280}>
             <ComposedChart data={chartData} margin={{ top: 8, right: 50, left: 10, bottom: 70 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis
@@ -238,6 +239,7 @@ export default function App() {
                 stroke="#f59e0b" strokeWidth={2} dot={false} name="CO₂" />
             </ComposedChart>
           </ResponsiveContainer>
+          </div>
 
           <p className="legend">
             <span className="dot green" /> Optimalt vindue &nbsp;
