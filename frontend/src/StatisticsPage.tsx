@@ -84,8 +84,8 @@ export default function StatisticsPage() {
                 <XAxis dataKey="month" tickFormatter={monthLabel} tick={{ fontSize: 11 }} />
                 <YAxis tickFormatter={v => `${Math.round(v * 100)}ø`} tick={{ fontSize: 11 }} width={42} />
                 <Tooltip
-                  formatter={(v: number) => [`${Math.round(v * 100)} øre`, "Besparelse"]}
-                  labelFormatter={monthLabel}
+                  formatter={(v) => [`${Math.round(Number(v) * 100)} øre`, "Besparelse"]}
+                  labelFormatter={(l) => monthLabel(String(l))}
                 />
                 <Bar dataKey="savingsDKK" radius={[4, 4, 0, 0]}>
                   {monthly.map((_, i) => (
@@ -104,8 +104,8 @@ export default function StatisticsPage() {
                 <XAxis dataKey="month" tickFormatter={monthLabel} tick={{ fontSize: 11 }} />
                 <YAxis tickFormatter={v => `${v}g`} tick={{ fontSize: 11 }} width={42} />
                 <Tooltip
-                  formatter={(v: number) => [`${Math.round(v)} g CO₂`, "Undgået"]}
-                  labelFormatter={monthLabel}
+                  formatter={(v) => [`${Math.round(Number(v))} g CO₂`, "Undgået"]}
+                  labelFormatter={(l) => monthLabel(String(l))}
                 />
                 <Bar dataKey="co2Saved" radius={[4, 4, 0, 0]}>
                   {monthly.map((_, i) => (
