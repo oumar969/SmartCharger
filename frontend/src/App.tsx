@@ -179,8 +179,8 @@ export default function App() {
   return (
     <div className="app">
       <header>
-        <h1>⚡ SmartCharger</h1>
-        <p>Opladningsanbefaling baseret på live elpriser og CO₂ fra Energinet</p>
+        <h1>SmartCharger ⚡</h1>
+        <p>Lad billigt. Lad grønt. Altid det rigtige tidspunkt.</p>
       </header>
 
       <div className="strategy-toggle">
