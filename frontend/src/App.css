@@ -1,148 +1,220 @@
-* { box-sizing: border-box; margin: 0; padding: 0; }
+/* ── Reset ──────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* ── Base ───────────────────────────────────────────────── */
 body {
-  font-family: system-ui, sans-serif;
-  background: #0f172a;
-  color: #e2e8f0;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display",
+               "Segoe UI", Roboto, sans-serif;
+  background: #000;
+  color: #fff;
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
 }
 
 .app {
-  max-width: 900px;
+  max-width: 430px;
   margin: 0 auto;
-  padding: 32px 16px;
+  padding: 52px 20px 40px;
+  min-height: 100vh;
 }
 
+/* ── Header ─────────────────────────────────────────────── */
 header {
   text-align: center;
-  margin-bottom: 32px;
-}
-
-header h1 { font-size: 2rem; margin-bottom: 6px; }
-header p { color: #94a3b8; }
-
-.controls {
-  display: flex;
-  gap: 24px;
   margin-bottom: 28px;
-  flex-wrap: wrap;
+}
+header h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  margin-bottom: 4px;
+}
+header p {
+  font-size: 0.8rem;
+  color: rgba(255,255,255,0.45);
 }
 
+/* ── Strategy Toggle ────────────────────────────────────── */
+.strategy-toggle {
+  display: flex;
+  background: rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 3px;
+  margin-bottom: 20px;
+}
+.strategy-toggle button {
+  flex: 1;
+  padding: 9px 0;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: rgba(255,255,255,0.5);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+.strategy-toggle button.active {
+  background: #fff;
+  color: #000;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+.strategy-toggle button.active.green {
+  background: #30d158;
+  color: #fff;
+}
+
+/* ── Controls ───────────────────────────────────────────── */
+.controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
+}
 .controls label {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: 0.85rem;
-  color: #94a3b8;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: rgba(255,255,255,0.45);
 }
-
 .controls select,
-.controls input,
-.controls .input-error {
-  background: #1e293b;
-  border: 1px solid #334155;
-  color: #e2e8f0;
-  border-radius: 6px;
-  padding: 6px 10px;
-  font-size: 1rem;
+.controls input {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: #fff;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  font-family: inherit;
+  width: 100%;
+}
+.controls select:focus,
+.controls input:focus {
+  outline: none;
+  border-color: rgba(255,255,255,0.3);
+}
+.input-error { border-color: #ff453a !important; }
+
+/* ── Error / Loading ─────────────────────────────────────── */
+.error {
+  background: rgba(255,69,58,0.15);
+  border: 1px solid rgba(255,69,58,0.3);
+  border-radius: 12px;
+  color: #ff453a;
+  padding: 12px 16px;
+  font-size: 0.85rem;
+  margin-bottom: 16px;
+  text-align: center;
+}
+.loading {
+  text-align: center;
+  color: rgba(255,255,255,0.4);
+  padding: 48px;
+  font-size: 0.9rem;
 }
 
+/* ── Window Banner ──────────────────────────────────────── */
+.window-banner {
+  background: rgba(48,209,88,0.12);
+  border: 1px solid rgba(48,209,88,0.3);
+  border-radius: 16px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  font-size: 0.85rem;
+  color: #30d158;
+  line-height: 1.5;
+}
+.window-banner strong {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+.green-banner {
+  background: rgba(48,209,88,0.12) !important;
+  border-color: rgba(48,209,88,0.3) !important;
+  color: #30d158 !important;
+}
+
+/* ── Summary Cards ──────────────────────────────────────── */
 .summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.card {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px;
+  padding: 16px 10px;
+  text-align: center;
+}
+.card span {
+  display: block;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: #fff;
+  line-height: 1.1;
+  margin-bottom: 4px;
+}
+.card small {
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: rgba(255,255,255,0.4);
+}
+.card.green  { border-color: rgba(48,209,88,0.35); }
+.card.green span { color: #30d158; }
+.card.blue   { border-color: rgba(10,132,255,0.35); }
+.card.blue span  { color: #0a84ff; }
+.card.emerald { border-color: rgba(48,209,88,0.35); }
+.card.emerald span { color: #30d158; }
+
+/* ── Chart ───────────────────────────────────────────────── */
+.chart-wrapper {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 24px;
+  padding: 16px 8px 4px;
+  margin-bottom: 12px;
+}
+
+/* Recharts overrides */
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line { stroke: rgba(255,255,255,0.06) !important; }
+.recharts-text { fill: rgba(255,255,255,0.4) !important; font-size: 11px !important; }
+.recharts-default-tooltip {
+  background: rgba(28,28,30,0.95) !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6) !important;
+  backdrop-filter: blur(20px);
+}
+.recharts-tooltip-label { color: rgba(255,255,255,0.5) !important; font-size: 12px !important; }
+.recharts-tooltip-item  { font-size: 13px !important; font-weight: 600 !important; }
+
+/* ── Legend ─────────────────────────────────────────────── */
+.legend {
   display: flex;
-  gap: 16px;
-  margin-bottom: 28px;
+  justify-content: center;
+  gap: 14px;
+  font-size: 0.72rem;
+  color: rgba(255,255,255,0.4);
+  align-items: center;
+  padding: 8px 0 4px;
   flex-wrap: wrap;
 }
-
-.card {
-  flex: 1;
-  min-width: 140px;
-  background: #1e293b;
-  border: 1px solid #334155;
-  border-radius: 10px;
-  padding: 16px;
-  text-align: center;
-}
-
-.card span { display: block; font-size: 1.5rem; font-weight: 700; }
-.card small { color: #94a3b8; font-size: 0.8rem; }
-.card.green { border-color: #22c55e; }
-.card.green span { color: #22c55e; }
-.card.blue { border-color: #38bdf8; }
-.card.blue span { color: #38bdf8; }
-
-.loading { text-align: center; padding: 48px; color: #94a3b8; }
-
-.legend {
-  margin-top: 12px;
-  font-size: 0.85rem;
-  color: #94a3b8;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
 .dot {
   display: inline-block;
-  width: 12px; height: 12px;
-  border-radius: 2px;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  vertical-align: middle;
+  margin-right: 4px;
 }
-.dot.green      { background: #22c55e; }
+.dot.green      { background: #30d158; }
 .dot.lightgreen { background: #86efac; }
-.dot.grey       { background: #64748b; }
-.dot.amber      { background: #f59e0b; }
-
-.strategy-toggle {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 20px;
-}
-
-.strategy-toggle button {
-  flex: 1;
-  padding: 10px;
-  border-radius: 8px;
-  border: 1px solid #334155;
-  background: #1e293b;
-  color: #94a3b8;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.strategy-toggle button.active {
-  background: #1e40af;
-  border-color: #3b82f6;
-  color: #fff;
-}
-
-.strategy-toggle button.active.green {
-  background: #14532d;
-  border-color: #22c55e;
-}
-
-.card.emerald { border-color: #10b981; }
-.card.emerald span { color: #10b981; }
-
-.green-banner { border-color: #10b981 !important; color: #6ee7b7 !important; }
-
-.window-banner {
-  background: #1e293b;
-  border: 1px solid #22c55e;
-  border-radius: 8px;
-  padding: 12px 16px;
-  margin-bottom: 20px;
-  font-size: 0.9rem;
-  color: #86efac;
-}
-
-.error {
-  text-align: center;
-  color: #f87171;
-  padding: 16px;
-}
-
-.input-error {
-  border-color: #f87171 !important;
-  outline: 1px solid #f87171;
-}
+.dot.grey       { background: rgba(255,255,255,0.25); }

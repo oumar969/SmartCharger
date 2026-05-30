@@ -192,8 +192,9 @@ export default function App() {
             )}
           </div>
 
-          <ResponsiveContainer width="100%" height={360}>
-            <ComposedChart data={chartData} margin={{ top: 8, right: 50, left: 10, bottom: 70 }}>
+          <div className="chart-wrapper">
+          <ResponsiveContainer width="100%" height={280}>
+            <ComposedChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 50 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis
                 dataKey="hourStart"
@@ -205,15 +206,17 @@ export default function App() {
               />
               <YAxis
                 yAxisId="price"
-                tickFormatter={v => `${v} ø`}
-                width={55}
+                tickFormatter={v => `${v}ø`}
+                width={42}
+                tick={{ fontSize: 11 }}
               />
               <YAxis
                 yAxisId="co2"
                 orientation="right"
-                tickFormatter={v => `${v} g`}
+                tickFormatter={v => `${v}g`}
                 domain={["auto", "auto"]}
-                width={55}
+                width={38}
+                tick={{ fontSize: 11 }}
               />
               <Tooltip
                 formatter={(v, name) => {
@@ -238,6 +241,7 @@ export default function App() {
                 stroke="#f59e0b" strokeWidth={2} dot={false} name="CO₂" />
             </ComposedChart>
           </ResponsiveContainer>
+          </div>
 
           <p className="legend">
             <span className="dot green" /> Optimalt vindue &nbsp;
