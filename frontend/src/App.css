@@ -218,3 +218,66 @@ header p {
 .dot.green      { background: #30d158; }
 .dot.lightgreen { background: #86efac; }
 .dot.grey       { background: rgba(255,255,255,0.25); }
+.dot.indigo     { background: rgba(99,102,241,0.8); }
+
+/* ── Save button ─────────────────────────────────────────── */
+.save-btn {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 8px;
+  border: none;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.2s;
+}
+.save-btn:hover:not(:disabled) { background: rgba(255,255,255,0.25); }
+.save-btn:disabled { opacity: 0.6; cursor: default; }
+
+/* ── Statistics ──────────────────────────────────────────── */
+.stats-section {
+  margin-top: 24px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  padding-top: 20px;
+}
+.stats-section h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: rgba(255,255,255,0.8);
+}
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.stat-card {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  padding: 14px;
+  text-align: center;
+}
+.stat-card span {
+  display: block;
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: #fff;
+  margin-bottom: 4px;
+}
+.stat-card small {
+  font-size: 0.7rem;
+  color: rgba(255,255,255,0.4);
+}
+.stat-card.green  { border-color: rgba(48,209,88,0.3); }
+.stat-card.green span { color: #30d158; }
+.stat-card.blue   { border-color: rgba(10,132,255,0.3); }
+.stat-card.blue span  { color: #0a84ff; }
+.stat-card.emerald { border-color: rgba(48,209,88,0.3); }
+.stat-card.emerald span { color: #34d399; }

@@ -36,3 +36,25 @@ public record ChargeWindow(
 );
 
 public enum OptimizationStrategy { Cheapest, Greenest }
+
+public class ChargeSession
+{
+    public int      Id          { get; set; }
+    public DateTime WindowStart { get; set; }
+    public DateTime WindowEnd   { get; set; }
+    public int      Hours       { get; set; }
+    public double   AvgPriceDKK { get; set; }
+    public double   PeakPriceDKK { get; set; }   // most expensive hour that day
+    public double   SavingsDKK  { get; set; }    // (peak - avg) * hours
+    public double   AvgCo2      { get; set; }
+    public string   PriceArea   { get; set; } = "";
+    public OptimizationStrategy Strategy { get; set; }
+    public DateTime SavedAt     { get; set; } = DateTime.UtcNow;
+}
+
+public record SessionStats(
+    int    TotalSessions,
+    double TotalSavingsDKK,
+    double TotalCo2Saved,     // vs. peak-hour charging
+    double AvgSavingPerSession
+);

@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid,
   Cell, ResponsiveContainer, ReferenceLine, Legend
@@ -30,9 +30,24 @@ interface ChargeWindow {
   hours: ChargeRecommendation[];
 }
 
+interface PriceForecast {
+  hourStart: string;
+  forecastedPriceDKK: number;
+  lowerBound: number;
+  upperBound: number;
+}
+
+interface SessionStats {
+  totalSessions: number;
+  totalSavingsDKK: number;
+  totalCo2Saved: number;
+  avgSavingPerSession: number;
+}
+
 type Strategy = "Cheapest" | "Greenest";
 
 const API   = "http://localhost:5000/api/elspot";
+const SAPI  = "http://localhost:5000/api/sessions";
 const AREAS = ["DK1", "DK2"];
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -93,6 +108,33 @@ export default function App() {
         .catch(e => e?.response?.status === 404 ? null : Promise.reject(e)),
   });
 
+  const qc = useQueryClient();
+
+  const { data: forecast = [] } = useQuery<PriceForecast[]>({
+    queryKey: ["forecast", area],
+    queryFn:  () => fetchJson(`${API}/forecast?area=${area}&horizon=24`),
+    staleTime: 60 * 60 * 1000,
+  });
+
+  const { data: stats } = useQuery<SessionStats>({
+    queryKey: ["stats"],
+    queryFn:  () => fetchJson(`${SAPI}/stats`),
+  });
+
+  const saveSession = useMutation({
+    mutationFn: () => axios.post(SAPI, {
+      windowStart:  window?.windowStart,
+      windowEnd:    window?.windowEnd,
+      hours,
+      avgPriceDKK:  window?.averagePriceDKK ?? 0,
+      peakPriceDKK: Math.max(...last24.map(h => h.priceDKK)),
+      avgCo2:       window?.averageCo2 ?? 0,
+      priceArea:    area,
+      strategy:     strategy === "Cheapest" ? 0 : 1,
+    }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["stats"] }),
+  });
+
   // Only show the most recent 24 hours
   const last24 = useMemo(() => {
     if (merged.length === 0) return [];
@@ -104,18 +146,34 @@ export default function App() {
   const avgOere = last24.length ? Math.round(last24.reduce((s, d) => s + d.priceDKK, 0) / last24.length * 100) : 0;
   const avgCo2  = last24.length ? last24.reduce((s, d) => s + d.co2PerKwh, 0) / last24.length : 0;
 
-  const chartData = last24.map(h => {
-    const rec = recommendations.find(r => r.hourStart === h.hourStart);
-    const inWin = window &&
-      new Date(h.hourStart) >= new Date(window.windowStart) &&
-      new Date(h.hourStart) < new Date(window.windowEnd);
-    return {
-      ...h,
-      priceOere: toOere(h.priceDKK),   // display in øre
-      isRecommended: rec?.isRecommended ?? false,
-      inWindow: inWin ?? false,
-    };
-  });
+  // Merge historical + forecast into one chart dataset
+  const chartData = useMemo(() => {
+    const hist = last24.map(h => {
+      const rec = recommendations.find(r => r.hourStart === h.hourStart);
+      const inWin = window &&
+        new Date(h.hourStart) >= new Date(window.windowStart) &&
+        new Date(h.hourStart) < new Date(window.windowEnd);
+      return {
+        hourStart: h.hourStart,
+        priceOere: toOere(h.priceDKK),
+        co2PerKwh: h.co2PerKwh,
+        forecastOere: null as number | null,
+        isRecommended: rec?.isRecommended ?? false,
+        inWindow: inWin ?? false,
+        isForecast: false,
+      };
+    });
+    const fc = forecast.map(f => ({
+      hourStart:     f.hourStart,
+      priceOere:     null as number | null,
+      co2PerKwh:     0,
+      forecastOere:  toOere(f.forecastedPriceDKK),
+      isRecommended: false,
+      inWindow:      false,
+      isForecast:    true,
+    }));
+    return [...hist, ...fc];
+  }, [last24, forecast, recommendations, window]);
 
   const isCheapest = strategy === "Cheapest";
 
@@ -172,6 +230,13 @@ export default function App() {
               {isCheapest
                 ? `gns. ${toOere(window.averagePriceDKK)} øre/kWh`
                 : `gns. ${window.averageCo2.toFixed(0)} g CO₂/kWh`}
+              <button
+                className="save-btn"
+                onClick={() => saveSession.mutate()}
+                disabled={saveSession.isPending || saveSession.isSuccess}
+              >
+                {saveSession.isSuccess ? "✓ Gemt" : saveSession.isPending ? "…" : "Gem opladning"}
+              </button>
             </div>
           )}
 
@@ -237,6 +302,8 @@ export default function App() {
                   } />
                 ))}
               </Bar>
+              <Bar yAxisId="price" dataKey="forecastOere" radius={[4,4,0,0]}
+                name="Prognose" fill="rgba(99,102,241,0.5)" />
               <Line yAxisId="co2" type="monotone" dataKey="co2PerKwh"
                 stroke="#f59e0b" strokeWidth={2} dot={false} name="CO₂" />
             </ComposedChart>
@@ -246,8 +313,33 @@ export default function App() {
           <p className="legend">
             <span className="dot green" /> Optimalt vindue &nbsp;
             <span className="dot lightgreen" /> Anbefalet time &nbsp;
-            <span className="dot grey" /> Øvrige timer
+            <span className="dot grey" /> Øvrige timer &nbsp;
+            <span className="dot indigo" /> Prognose
           </p>
+
+          {stats && stats.totalSessions > 0 && (
+            <div className="stats-section">
+              <h2>📊 Din besparelse</h2>
+              <div className="stats-grid">
+                <div className="stat-card">
+                  <span>{stats.totalSessions}</span>
+                  <small>Opladninger gemt</small>
+                </div>
+                <div className="stat-card green">
+                  <span>{Math.round(stats.totalSavingsDKK * 100)} øre</span>
+                  <small>Sparet i alt</small>
+                </div>
+                <div className="stat-card blue">
+                  <span>{Math.round(stats.avgSavingPerSession * 100)} øre</span>
+                  <small>Gns. pr. opladning</small>
+                </div>
+                <div className="stat-card emerald">
+                  <span>{stats.totalCo2Saved.toFixed(0)} g</span>
+                  <small>CO₂ undgået</small>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
