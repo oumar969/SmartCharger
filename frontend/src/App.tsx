@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import StatisticsPage from "./StatisticsPage";
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid,
   Cell, ResponsiveContainer, ReferenceLine, Legend
@@ -61,6 +62,7 @@ const fmt = (iso: string) =>
 const toOere = (kr: number) => Math.round(kr * 100);
 
 export default function App() {
+  const [tab,      setTab]      = useState<"home" | "stats">("home");
   const [hours,    setHours]    = useState(4);
   const [area,     setArea]     = useState<string>("DK2");
   const [deadline, setDeadline] = useState("07:00");
@@ -190,7 +192,14 @@ export default function App() {
         <p>Lad billigt. Lad grønt. Altid det rigtige tidspunkt.</p>
       </header>
 
-      <div className="strategy-toggle">
+      <div className="tab-nav">
+        <button className={tab === "home"  ? "active" : ""} onClick={() => setTab("home")}>⚡ Oplad</button>
+        <button className={tab === "stats" ? "active" : ""} onClick={() => setTab("stats")}>📊 Statistik</button>
+      </div>
+
+      {tab === "stats" && <StatisticsPage />}
+
+      {tab === "home" && <><div className="strategy-toggle">
         <button className={isCheapest ? "active" : ""} onClick={() => setStrategy("Cheapest")}>
           💰 Billigst
         </button>
@@ -331,7 +340,7 @@ export default function App() {
 
           {stats && stats.totalSessions > 0 && (
             <div className="stats-section">
-            <hr className="section-divider" />
+              <hr className="section-divider" />
               <span className="stats-eyebrow">Din besparelse</span>
               <div className="stats-grid">
                 <div className="stat-card">
@@ -351,10 +360,13 @@ export default function App() {
                   <small>CO₂ undgået</small>
                 </div>
               </div>
+              <button className="see-stats-btn" onClick={() => setTab("stats")}>
+                Se fuld statistik →
+              </button>
             </div>
           )}
         </>
-      )}
+      )}</>}
     </div>
   );
 }

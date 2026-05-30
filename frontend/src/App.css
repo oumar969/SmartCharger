@@ -304,6 +304,149 @@ header p {
 .dot.grey       { background: var(--hairline-strong); }
 .dot.indigo     { background: rgba(99,102,241,0.8); }
 
+/* ── Tab navigation ─────────────────────────────────────── */
+.tab-nav {
+  display: flex;
+  background: var(--canvas-soft);
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 3px;
+  margin-bottom: 24px;
+  gap: 3px;
+}
+
+.tab-nav button {
+  flex: 1;
+  padding: 9px 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--on-dark-muted);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+
+.tab-nav button.active {
+  background: var(--canvas-night);
+  color: var(--on-dark);
+  font-weight: 600;
+  border: 1px solid var(--hairline);
+}
+
+/* ── See stats button ────────────────────────────────────── */
+.see-stats-btn {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  padding: 9px;
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--on-dark-muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+  text-align: center;
+}
+.see-stats-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+/* ── Stats page ──────────────────────────────────────────── */
+.stats-page { padding-bottom: 24px; }
+
+/* ── CO₂ report card ─────────────────────────────────────── */
+.co2-report {
+  background: var(--canvas-soft);
+  border: 1px solid rgba(62,207,142,0.2);
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.green-circle {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  border: 3px solid var(--primary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+  background: rgba(62,207,142,0.08);
+}
+
+.green-pct {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--primary);
+  line-height: 1;
+}
+
+.green-circle small {
+  font-size: 10px;
+  color: var(--on-dark-muted);
+  margin-top: 2px;
+}
+
+.co2-facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.fact {
+  background: var(--canvas-night);
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+}
+
+.fact span {
+  display: block;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--on-dark);
+  margin-bottom: 3px;
+}
+
+.fact small { font-size: 11px; color: var(--ink-mute); }
+
+/* ── LinkedIn share button ───────────────────────────────── */
+.share-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-radius: 8px;
+  background: #0077b5;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: opacity 0.15s;
+}
+.share-btn:hover { opacity: 0.9; }
+
+/* ── Empty state ─────────────────────────────────────────── */
+.empty-state {
+  text-align: center;
+  padding: 48px 16px;
+  color: var(--ink-mute);
+}
+.empty-state p { font-size: 1rem; margin-bottom: 8px; color: var(--on-dark-muted); }
+.empty-state small { font-size: 13px; }
+
 /* ── Section divider ─────────────────────────────────────── */
 .section-divider {
   border: none;

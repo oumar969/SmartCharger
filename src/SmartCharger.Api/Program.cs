@@ -21,6 +21,7 @@ builder.Services.AddDbContext<AppDbContext>(o =>
     o.UseSqlite("Data Source=smartcharger.db"));
 builder.Services.AddScoped<SessionService>();
 builder.Services.AddScoped<ForecastService>();
+builder.Services.AddHostedService<CacheWarmupService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -79,5 +80,14 @@ app.MapGet("/api/sessions", async (SessionService svc) =>
 
 app.MapGet("/api/sessions/stats", async (SessionService svc) =>
     Results.Ok(await svc.GetStatsAsync())).WithName("GetStats");
+
+app.MapGet("/api/sessions/monthly", async (SessionService svc) =>
+    Results.Ok(await svc.GetMonthlyStatsAsync())).WithName("GetMonthlyStats");
+
+app.MapGet("/api/sessions/co2report", async (SessionService svc, string? month = null) =>
+{
+    var report = await svc.GetCo2ReportAsync(month);
+    return report is null ? Results.NotFound() : Results.Ok(report);
+}).WithName("GetCo2Report");
 
 app.Run();
