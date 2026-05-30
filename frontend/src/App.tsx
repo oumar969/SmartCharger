@@ -159,27 +159,44 @@ export default function App() {
             )}
           </div>
 
-          <ResponsiveContainer width="100%" height={340}>
-            <ComposedChart data={chartData} margin={{ top: 8, right: 40, left: 0, bottom: 60 }}>
+          <ResponsiveContainer width="100%" height={360}>
+            <ComposedChart data={chartData} margin={{ top: 8, right: 50, left: 10, bottom: 70 }}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="hourStart" tickFormatter={fmt} angle={-45} textAnchor="end" />
-              <YAxis yAxisId="price" tickFormatter={v => `${v} kr`} />
-              <YAxis yAxisId="co2" orientation="right" tickFormatter={v => `${v}g`} />
+              <XAxis
+                dataKey="hourStart"
+                tickFormatter={fmt}
+                angle={-45}
+                textAnchor="end"
+                interval={3}
+                height={60}
+              />
+              <YAxis
+                yAxisId="price"
+                tickFormatter={v => `${v} kr`}
+                width={60}
+              />
+              <YAxis
+                yAxisId="co2"
+                orientation="right"
+                tickFormatter={v => `${v} g`}
+                domain={["auto", "auto"]}
+                width={55}
+              />
               <Tooltip
                 formatter={(v, name) => {
-                const val = Number(v);
-                return name === "co2PerKwh"
-                  ? [`${val.toFixed(0)} g CO₂/kWh`, "CO₂"]
-                  : [`${val.toFixed(4)} kr/kWh`, "Pris"];
-              }}
+                  const val = Number(v);
+                  return name === "CO₂"
+                    ? [`${val.toFixed(0)} g CO₂/kWh`, "CO₂"]
+                    : [`${val.toFixed(4)} kr/kWh`, "Spotpris"];
+                }}
                 labelFormatter={l => new Date(l).toLocaleString("da-DK")}
               />
-              <Legend />
+              <Legend verticalAlign="bottom" height={36} wrapperStyle={{ paddingTop: "12px" }} />
               <ReferenceLine yAxisId="price" y={avgPrice} stroke="#888" strokeDasharray="4 4" />
               <Bar yAxisId="price" dataKey="priceDKK" radius={[4, 4, 0, 0]} name="Spotpris">
                 {chartData.map((entry, i) => (
                   <Cell key={i} fill={
-                    entry.inWindow   ? (isCheapest ? "#22c55e" : "#10b981") :
+                    entry.inWindow      ? (isCheapest ? "#22c55e" : "#10b981") :
                     entry.isRecommended ? "#86efac" : "#64748b"
                   } />
                 ))}
@@ -192,8 +209,7 @@ export default function App() {
           <p className="legend">
             <span className="dot green" /> Optimalt vindue &nbsp;
             <span className="dot lightgreen" /> Anbefalet time &nbsp;
-            <span className="dot grey" /> Dyrere/mere CO₂ &nbsp;
-            <span className="dot amber" /> CO₂-kurve
+            <span className="dot grey" /> Øvrige timer
           </p>
         </>
       )}

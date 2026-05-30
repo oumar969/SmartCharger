@@ -15,16 +15,23 @@ public class ElspotService(HttpClient http, ILogger<ElspotService> logger)
     private static readonly Dictionary<string, (DateTime At, List<ElspotPrice> Data)>  _priceCache = new();
     private static readonly Dictionary<string, (DateTime At, List<Co2Forecast> Data)>  _co2Cache   = new();
 
+    // Backoff: don't retry Energinet for 6 minutes after a 429
+    private static DateTime _priceBackoffUntil = DateTime.MinValue;
+    private static DateTime _co2BackoffUntil   = DateTime.MinValue;
+
     // --- Public API ---
 
     public async Task<List<ElspotPrice>> GetTodayPricesAsync(string priceArea = "DK2")
     {
         if (_priceCache.TryGetValue(priceArea, out var c) && Age(c.At) < 240) return c.Data;
+        if (DateTime.UtcNow < _priceBackoffUntil)
+        {
+            logger.LogWarning("Elspot rate-limited, backing off until {Until}", _priceBackoffUntil);
+            return c.Data ?? [];
+        }
 
-        var from   = DateTime.UtcNow.Date;
-        var to     = from.AddDays(2);
         var filter = Uri.EscapeDataString($"{{\"PriceArea\":\"{priceArea}\"}}");
-        var url    = $"{ElspotUrl}?start={from:yyyy-MM-ddTHH:mm}&end={to:yyyy-MM-ddTHH:mm}&filter={filter}&sort=HourUTC%20asc&limit=48";
+        var url    = $"{ElspotUrl}?filter={filter}&sort=HourUTC%20desc&limit=48";
 
         return await FetchAndCache(url, _priceCache, priceArea, c.Data);
     }
@@ -32,11 +39,14 @@ public class ElspotService(HttpClient http, ILogger<ElspotService> logger)
     public async Task<List<Co2Forecast>> GetCo2ForecastAsync(string priceArea = "DK2")
     {
         if (_co2Cache.TryGetValue(priceArea, out var c) && Age(c.At) < 240) return c.Data;
+        if (DateTime.UtcNow < _co2BackoffUntil)
+        {
+            logger.LogWarning("CO2 rate-limited, backing off until {Until}", _co2BackoffUntil);
+            return c.Data ?? [];
+        }
 
-        var from   = DateTime.UtcNow.Date;
-        var to     = from.AddDays(2);
         var filter = Uri.EscapeDataString($"{{\"PriceArea\":\"{priceArea}\"}}");
-        var url    = $"{EmissionsUrl}?start={from:yyyy-MM-ddTHH:mm}&end={to:yyyy-MM-ddTHH:mm}&filter={filter}&sort=Minutes5UTC%20asc&limit=576";
+        var url    = $"{EmissionsUrl}?filter={filter}&sort=Minutes5UTC%20desc&limit=576";
 
         return await FetchCo2AndCache(url, _co2Cache, priceArea, c.Data);
     }
@@ -46,17 +56,24 @@ public class ElspotService(HttpClient http, ILogger<ElspotService> logger)
         var prices = await GetTodayPricesAsync(priceArea);
         var co2    = await GetCo2ForecastAsync(priceArea);
 
-        // CO2 data is in 5-min intervals — average per hour
+        // CO2 data is in 5-min intervals — average per hour, strip minutes for matching
         var co2ByHour = co2
-            .GroupBy(c => new DateTime(c.HourStart.Year, c.HourStart.Month, c.HourStart.Day, c.HourStart.Hour, 0, 0, DateTimeKind.Utc))
+            .GroupBy(c => c.HourStart.Date.AddHours(c.HourStart.Hour))
             .ToDictionary(g => g.Key, g => g.Average(x => x.Co2PerKwh));
 
-        return prices.Select(p => new HourData(
-            p.HourStart,
-            p.PriceDKK,
-            co2ByHour.TryGetValue(p.HourStart, out var co2val) ? Math.Round(co2val, 1) : 0,
-            p.PriceArea
-        )).ToList();
+        return prices.Select(p => {
+            // Try both UTC and unspecified DateTimeKind since Energinet may differ
+            var key = p.HourStart.Kind == DateTimeKind.Utc
+                ? DateTime.SpecifyKind(p.HourStart, DateTimeKind.Unspecified)
+                : p.HourStart;
+            var keyUtc = p.HourStart.Date.AddHours(p.HourStart.Hour);
+
+            var co2val = co2ByHour.TryGetValue(keyUtc, out var v1) ? v1
+                       : co2ByHour.TryGetValue(key, out var v2) ? v2
+                       : 0;
+
+            return new HourData(p.HourStart, p.PriceDKK, Math.Round(co2val, 1), p.PriceArea);
+        }).ToList();
     }
 
     public async Task<List<ChargeRecommendation>> GetRecommendationsAsync(
@@ -72,9 +89,18 @@ public class ElspotService(HttpClient http, ILogger<ElspotService> logger)
         DateTime? deadline = null,
         OptimizationStrategy strategy = OptimizationStrategy.Cheapest)
     {
-        var merged   = await GetMergedAsync(priceArea);
-        var cutoff   = deadline ?? DateTime.UtcNow.Date.AddDays(1).AddHours(7);
-        return ChargingOptimizer.FindBestWindow(merged, hoursNeeded, DateTime.UtcNow, cutoff, strategy);
+        var merged = await GetMergedAsync(priceArea);
+        if (merged.Count == 0) return null;
+
+        // Use data's own time range so it works with both live and historical data
+        var dataStart = merged.Min(h => h.HourStart);
+        var dataEnd   = merged.Max(h => h.HourStart).AddHours(1);
+        var now       = dataStart;
+        var cutoff    = deadline.HasValue && deadline.Value > dataStart && deadline.Value <= dataEnd
+                        ? deadline.Value
+                        : dataEnd;
+
+        return ChargingOptimizer.FindBestWindow(merged, hoursNeeded, now, cutoff, strategy);
     }
 
     // --- Helpers ---
@@ -93,9 +119,15 @@ public class ElspotService(HttpClient http, ILogger<ElspotService> logger)
             var response = JsonSerializer.Deserialize<EnergidataResponse<ElspotRecord>>(json, JsonOptions);
             var data     = response?.Records.Select(r =>
                 new ElspotPrice(r.HourUTC, Math.Round(r.SpotPriceDKK / 1000.0, 4), r.PriceArea)
-            ).ToList() ?? [];
+            ).OrderBy(x => x.HourStart).ToList() ?? [];
             cache[key]   = (DateTime.UtcNow, data);
             return data;
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+        {
+            _priceBackoffUntil = DateTime.UtcNow.AddMinutes(6);
+            logger.LogWarning("Elspot 429 — backing off for 6 minutes");
+            return fallback ?? [];
         }
         catch (Exception ex)
         {
@@ -114,9 +146,15 @@ public class ElspotService(HttpClient http, ILogger<ElspotService> logger)
         {
             var json     = await http.GetStringAsync(url);
             var response = JsonSerializer.Deserialize<EnergidataResponse<Co2Record>>(json, JsonOptions);
-            var data     = response?.Records.Select(r => new Co2Forecast(r.Minutes5UTC, r.CO2Emission, r.PriceArea)).ToList() ?? [];
+            var data     = response?.Records.Select(r => new Co2Forecast(r.Minutes5UTC, r.CO2Emission, r.PriceArea)).OrderBy(x => x.HourStart).ToList() ?? [];
             cache[key]   = (DateTime.UtcNow, data);
             return data;
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+        {
+            _co2BackoffUntil = DateTime.UtcNow.AddMinutes(6);
+            logger.LogWarning("CO2 429 — backing off for 6 minutes");
+            return fallback ?? [];
         }
         catch (Exception ex)
         {
