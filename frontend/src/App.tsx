@@ -121,6 +121,8 @@ export default function App() {
     queryFn:  () => fetchJson(`${SAPI}/stats`),
   });
 
+  const [savedMsg, setSavedMsg] = useState(false);
+
   const saveSession = useMutation({
     mutationFn: () => axios.post(SAPI, {
       windowStart:  window?.windowStart,
@@ -132,7 +134,11 @@ export default function App() {
       priceArea:    area,
       strategy:     strategy === "Cheapest" ? 0 : 1,
     }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["stats"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["stats"] });
+      setSavedMsg(true);
+      setTimeout(() => { setSavedMsg(false); saveSession.reset(); }, 4000);
+    },
   });
 
   // Only show the most recent 24 hours
@@ -230,13 +236,19 @@ export default function App() {
               {isCheapest
                 ? `gns. ${toOere(window.averagePriceDKK)} øre/kWh`
                 : `gns. ${window.averageCo2.toFixed(0)} g CO₂/kWh`}
-              <button
-                className="save-btn"
-                onClick={() => saveSession.mutate()}
-                disabled={saveSession.isPending || saveSession.isSuccess}
-              >
-                {saveSession.isSuccess ? "✓ Gemt" : saveSession.isPending ? "…" : "Gem opladning"}
-              </button>
+              {savedMsg ? (
+                <div className="saved-toast">
+                  ✅ Opladning gemt — se din besparelse nedenfor
+                </div>
+              ) : (
+                <button
+                  className="save-btn"
+                  onClick={() => saveSession.mutate()}
+                  disabled={saveSession.isPending}
+                >
+                  {saveSession.isPending ? "Gemmer…" : "Gem opladning"}
+                </button>
+              )}
             </div>
           )}
 
