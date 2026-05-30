@@ -138,9 +138,9 @@ export default function App() {
   // Only show the most recent 24 hours
   const last24 = useMemo(() => {
     if (merged.length === 0) return [];
-    const sorted = [...merged].sort((a, b) =>
-      new Date(a.hourStart).getTime() - new Date(b.hourStart).getTime());
-    return sorted.slice(-24);
+    return [...merged]
+      .sort((a, b) => (a.hourStart < b.hourStart ? -1 : a.hourStart > b.hourStart ? 1 : 0))
+      .slice(-24);
   }, [merged]);
 
   const avgOere = last24.length ? Math.round(last24.reduce((s, d) => s + d.priceDKK, 0) / last24.length * 100) : 0;
