@@ -19,11 +19,58 @@ public class ElspotService(HttpClient http, ILogger<ElspotService> logger)
     private static readonly Dictionary<string, DateTime> _priceBackoff = new();
     private static readonly Dictionary<string, DateTime> _co2Backoff   = new();
 
+    // Disk cache paths — survives API restarts
+    private static string PriceCachePath(string area) => Path.Combine(Path.GetTempPath(), $"sc_price_{area}.json");
+    private static string Co2CachePath(string area)   => Path.Combine(Path.GetTempPath(), $"sc_co2_{area}.json");
+
+    private static List<ElspotPrice>? LoadPriceFromDisk(string area)
+    {
+        try
+        {
+            var path = PriceCachePath(area);
+            if (!File.Exists(path)) return null;
+            var (at, data) = JsonSerializer.Deserialize<(DateTime, List<ElspotPrice>)>(File.ReadAllText(path));
+            if ((DateTime.UtcNow - at).TotalMinutes > 240) return null; // expired
+            _priceCache[area] = (at, data);
+            return data;
+        }
+        catch { return null; }
+    }
+
+    private static void SavePriceToDisk(string area, DateTime at, List<ElspotPrice> data)
+    {
+        try { File.WriteAllText(PriceCachePath(area), JsonSerializer.Serialize((at, data))); }
+        catch { }
+    }
+
+    private static List<Co2Forecast>? LoadCo2FromDisk(string area)
+    {
+        try
+        {
+            var path = Co2CachePath(area);
+            if (!File.Exists(path)) return null;
+            var (at, data) = JsonSerializer.Deserialize<(DateTime, List<Co2Forecast>)>(File.ReadAllText(path));
+            if ((DateTime.UtcNow - at).TotalMinutes > 240) return null;
+            _co2Cache[area] = (at, data);
+            return data;
+        }
+        catch { return null; }
+    }
+
+    private static void SaveCo2ToDisk(string area, DateTime at, List<Co2Forecast> data)
+    {
+        try { File.WriteAllText(Co2CachePath(area), JsonSerializer.Serialize((at, data))); }
+        catch { }
+    }
+
     // --- Public API ---
 
     public async Task<List<ElspotPrice>> GetTodayPricesAsync(string priceArea = "DK2")
     {
         if (_priceCache.TryGetValue(priceArea, out var c) && Age(c.At) < 240) return c.Data;
+        // Try disk cache before hitting Energinet
+        var disk = LoadPriceFromDisk(priceArea);
+        if (disk is not null) return disk;
         if (_priceBackoff.TryGetValue(priceArea, out var pb) && DateTime.UtcNow < pb)
         {
             logger.LogWarning("Elspot rate-limited for {Area}, backing off until {Until}", priceArea, pb);
@@ -39,6 +86,8 @@ public class ElspotService(HttpClient http, ILogger<ElspotService> logger)
     public async Task<List<Co2Forecast>> GetCo2ForecastAsync(string priceArea = "DK2", DateTime? from = null, DateTime? to = null)
     {
         if (_co2Cache.TryGetValue(priceArea, out var c) && Age(c.At) < 240) return c.Data;
+        var diskCo2 = LoadCo2FromDisk(priceArea);
+        if (diskCo2 is not null) return diskCo2;
         if (_co2Backoff.TryGetValue(priceArea, out var cb) && DateTime.UtcNow < cb)
         {
             logger.LogWarning("CO2 rate-limited for {Area}, backing off until {Until}", priceArea, cb);
@@ -124,6 +173,7 @@ public class ElspotService(HttpClient http, ILogger<ElspotService> logger)
                 new ElspotPrice(r.HourUTC, Math.Round(r.SpotPriceDKK / 1000.0, 4), r.PriceArea)
             ).OrderBy(x => x.HourStart).ToList() ?? [];
             cache[key]   = (DateTime.UtcNow, data);
+            SavePriceToDisk(key, DateTime.UtcNow, data);
             return data;
         }
         catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
@@ -151,6 +201,7 @@ public class ElspotService(HttpClient http, ILogger<ElspotService> logger)
             var response = JsonSerializer.Deserialize<EnergidataResponse<Co2Record>>(json, JsonOptions);
             var data     = response?.Records.Select(r => new Co2Forecast(r.Minutes5UTC, r.CO2Emission, r.PriceArea)).OrderBy(x => x.HourStart).ToList() ?? [];
             cache[key]   = (DateTime.UtcNow, data);
+            SaveCo2ToDisk(key, DateTime.UtcNow, data);
             return data;
         }
         catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
