@@ -52,24 +52,26 @@ export default function App() {
   const [strategy, setStrategy] = useState<Strategy>("Cheapest");
 
   // Build deadline ISO — if deadline time has already passed today, use tomorrow
-  const deadlineISO = useMemo(() => {
+  const { deadlineISO, deadlineError } = useMemo(() => {
+    const now = new Date();
     const parts = deadline.split(":");
     const h = parseInt(parts[0] ?? "", 10);
     const m = parseInt(parts[1] ?? "", 10);
-    if (isNaN(h) || isNaN(m)) return new Date(Date.now() + 86400000).toISOString();
-    const d = new Date();
+    if (isNaN(h) || isNaN(m)) {
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      return { deadlineISO: tomorrow.toISOString(), deadlineError: null };
+    }
+    const d = new Date(now);
     d.setHours(h, m, 0, 0);
-    // If deadline is in the past (or less than `hours` away), push to tomorrow
-    const hoursUntil = (d.getTime() - Date.now()) / 3600000;
+    const hoursUntil = (d.getTime() - now.getTime()) / 3600000;
     if (hoursUntil < hours) d.setDate(d.getDate() + 1);
-    return d.toISOString();
+    const finalHours = (d.getTime() - now.getTime()) / 3600000;
+    const error = finalHours < hours
+      ? `Kun ${finalHours.toFixed(1)} t til deadline — ikke nok tid til ${hours} timers opladning`
+      : null;
+    return { deadlineISO: d.toISOString(), deadlineError: error };
   }, [deadline, hours]);
-
-  // Validate: is there enough time before deadline?
-  const hoursUntilDeadline = (new Date(deadlineISO).getTime() - Date.now()) / 3600000;
-  const deadlineError = hoursUntilDeadline < hours
-    ? `Kun ${hoursUntilDeadline.toFixed(1)} t til deadline — ikke nok tid til ${hours} timers opladning`
-    : null;
 
   const { data: recommendations = [], isLoading, isError } = useQuery<ChargeRecommendation[]>({
     queryKey: ["recommendations", hours, area, strategy],
